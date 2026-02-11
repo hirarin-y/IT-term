@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>運転学習IT用語アプリ</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #3b82f6, #06b6d4);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #3b82f6, #06b6d4);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // アイコンコンポーネントを手動で定義
+        const Play = (props) => {
+            return React.createElement('svg', {
+                ...props,
+                fill: 'currentColor',
+                viewBox: '0 0 24 24'
+            }, React.createElement('path', {
+                d: 'M8 5v14l11-7z'
+            }));
+        };
+        
+        const Pause = (props) => {
+            return React.createElement('svg', {
+                ...props,
+                fill: 'currentColor',
+                viewBox: '0 0 24 24'
+            }, React.createElement('path', {
+                d: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z'
+            }));
+        };
+        
+        const SkipForward = (props) => {
+            return React.createElement('svg', {
+                ...props,
+                fill: 'currentColor',
+                viewBox: '0 0 24 24'
+            }, React.createElement('path', {
+                d: 'm4 18 8.5-6L4 6v12zm9-12v12l8.5-6L13 6z'
+            }));
+        };
+        
+        const Volume2 = (props) => {
+            return React.createElement('svg', {
+                ...props,
+                fill: 'currentColor',
+                viewBox: '0 0 24 24'
+            }, React.createElement('path', {
+                d: 'M11 5 6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14'
+            }));
+        };
+        
+        const BookOpen = (props) => {
+            return React.createElement('svg', {
+                ...props,
+                fill: 'currentColor',
+                viewBox: '0 0 24 24'
+            }, React.createElement('path', {
+                d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2V3zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7V3z'
+            }));
+        };
+        
+        const RotateCcw = (props) => {
+            return React.createElement('svg', {
+                ...props,
+                fill: 'currentColor',
+                viewBox: '0 0 24 24'
+            }, React.createElement('path', {
+                d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'
+            }));
+        };
+
+        const DrivingITLearningApp = () => {
+          const [isPlaying, setIsPlaying] = useState(false);
+          const [currentTerm, setCurrentTerm] = useState(0);
+          const [isDrivingMode, setIsDrivingMode] = useState(true);
+          const [progress, setProgress] = useState(0);
+          const [isLoading, setIsLoading] = useState(false);
+          const [volume, setVolume] = useState(0.8);
+          const [speechRate, setSpeechRate] = useState(0.9);
+          const [autoPlay, setAutoPlay] = useState(false);
+          const [tempVolume, setTempVolume] = useState(0.8);
+          const [tempSpeechRate, setTempSpeechRate] = useState(0.9);
+          
+          const audioRef = useRef(null);
+          const speechSynthesisRef = useRef(null);
+          const autoPlayTimeoutRef = useRef(null);
+          const volumeTimeoutRef = useRef(null);
+          const rateTimeoutRef = useRef(null);
+
+          // IT用語データベース（50個）
+          const itTerms = [
+            {
+              id: 1,
+              term: "API",
+              reading: "エーピーアイ",
+              definition: "Application Programming Interfaceの略。異なるソフトウェア同士が情報をやり取りするための仕組みです。",
+              example: "WebサイトがTwitterのAPIを使って、ツイートを表示する機能を実装できます。"
+            },
+            {
+              id: 2,
+              term: "クラウドコンピューティング",
+              reading: "クラウドコンピューティング",
+              definition: "インターネット経由でコンピュータリソースやサービスを利用する技術です。",
+              example: "GoogleドライブやAmazon Web Servicesが代表的なクラウドサービスです。"
+            },
+            {
+              id: 3,
+              term: "機械学習",
+              reading: "キカイガクシュウ",
+              definition: "コンピュータがデータから自動的にパターンを学習し、予測や分類を行う技術です。",
+              example: "メールのスパム判定や商品推薦システムに使われています。"
+            },
+            {
+              id: 4,
+              term: "DevOps",
+              reading: "デブオプス",
+              definition: "開発チームと運用チームが協力して、ソフトウェアの開発から運用までを効率化する考え方です。",
+              example: "継続的インテグレーションや自動デプロイメントが含まれます。"
+            },
+            {
+              id: 5,
+              term: "IoT",
+              reading: "アイオーティー",
+              definition: "Internet of Thingsの略。様々なモノがインターネットに接続され、データを交換する技術です。",
+              example: "スマート家電や自動車の遠隔監視システムなどがあります。"
+            },
+            {
+              id: 6,
+              term: "ブロックチェーン",
+              reading: "ブロックチェーン",
+              definition: "取引記録を改ざん困難な形で分散管理する技術です。",
+              example: "仮想通貨ビットコインの基盤技術として使われています。"
+            },
+            {
+              id: 7,
+              term: "コンテナ技術",
+              reading: "コンテナギジュツ",
+              definition: "アプリケーションとその実行環境を軽量にパッケージ化する技術です。",
+              example: "Dockerが代表的なコンテナプラットフォームです。"
+            },
+            {
+              id: 8,
+              term: "マイクロサービス",
+              reading: "マイクロサービス",
+              definition: "大きなアプリケーションを小さな独立したサービスに分割するアーキテクチャです。",
+              example: "NetflixやAmazonが採用している設計手法です。"
+            },
+            {
+              id: 9,
+              term: "データベース",
+              reading: "データベース",
+              definition: "データを整理して効率的に保存・検索できるシステムです。",
+              example: "顧客情報や商品情報を管理するのに使われます。"
+            },
+            {
+              id: 10,
+              term: "ファイアウォール",
+              reading: "ファイアウォール",
+              definition: "ネットワークへの不正アクセスを防ぐセキュリティシステムです。",
+              example: "企業内ネットワークを外部の脅威から守ります。"
+            },
+            {
+              id: 11,
+              term: "VPN",
+              reading: "ブイピーエヌ",
+              definition: "Virtual Private Networkの略。安全な仮想的な専用回線を作る技術です。",
+              example: "リモートワークで社内ネットワークに安全にアクセスできます。"
+            },
+            {
+              id: 12,
+              term: "SSL",
+              reading: "エスエスエル",
+              definition: "インターネット通信を暗号化してセキュリティを高める技術です。",
+              example: "オンラインショッピングでクレジットカード情報を安全に送信します。"
+            },
+            {
+              id: 13,
+              term: "レスポンシブデザイン",
+              reading: "レスポンシブデザイン",
+              definition: "様々な画面サイズに自動的に対応するWebデザイン手法です。",
+              example: "同じWebサイトがスマホでもパソコンでも見やすく表示されます。"
+            },
+            {
+              id: 14,
+              term: "フロントエンド",
+              reading: "フロントエンド",
+              definition: "ユーザーが直接操作する部分のシステム開発を指します。",
+              example: "Webサイトのデザインやユーザーインターフェースの実装です。"
+            },
+            {
+              id: 15,
+              term: "バックエンド",
+              reading: "バックエンド",
+              definition: "ユーザーから見えない部分のシステム処理を指します。",
+              example: "データベース処理やサーバー側のロジック実装です。"
+            },
+            {
+              id: 16,
+              term: "フレームワーク",
+              reading: "フレームワーク",
+              definition: "アプリケーション開発を効率化するための基盤となるソフトウェアです。",
+              example: "ReactやVue.jsがWebアプリ開発で使われる代表的なフレームワークです。"
+            },
+            {
+              id: 17,
+              term: "アジャイル開発",
+              reading: "アジャイルカイハツ",
+              definition: "短期間で機能を実装し、段階的にシステムを完成させる開発手法です。",
+              example: "スクラムやカンバンといった具体的な方法論があります。"
+            },
+            {
+              id: 18,
+              term: "バージョン管理",
+              reading: "バージョンカンリ",
+              definition: "ソースコードの変更履歴を管理し、過去の状態に戻せるシステムです。",
+              example: "Gitが最も広く使われているバージョン管理システムです。"
+            },
+            {
+              id: 19,
+              term: "UI",
+              reading: "ユーアイ",
+              definition: "User Interfaceの略。ユーザーがシステムを操作する画面や仕組みです。",
+              example: "ボタンやメニューなど、ユーザーが触れる全ての要素を含みます。"
+            },
+            {
+              id: 20,
+              term: "UX",
+              reading: "ユーエックス",
+              definition: "User Experienceの略。ユーザーがサービスを使った時の総合的な体験です。",
+              example: "使いやすさや満足度など、感情的な側面も含まれます。"
+            },
+            {
+              id: 21,
+              term: "ビッグデータ",
+              reading: "ビッグデータ",
+              definition: "従来の処理方法では扱いきれない大量のデータのことです。",
+              example: "SNSの投稿データや位置情報データなどが該当します。"
+            },
+            {
+              id: 22,
+              term: "データマイニング",
+              reading: "データマイニング",
+              definition: "大量のデータから有用なパターンや知識を発見する技術です。",
+              example: "購買履歴から顧客の嗜好を分析することができます。"
+            },
+            {
+              id: 23,
+              term: "人工知能",
+              reading: "ジンコウチノウ",
+              definition: "人間の知的活動をコンピュータで模倣する技術の総称です。",
+              example: "画像認識や自然言語処理、音声認識などの分野があります。"
+            },
+            {
+              id: 24,
+              term: "深層学習",
+              reading: "シンソウガクシュウ",
+              definition: "多層のニューラルネットワークを使った機械学習手法です。",
+              example: "画像認識や音声認識で高い精度を実現しています。"
+            },
+            {
+              id: 25,
+              term: "サイバーセキュリティ",
+              reading: "サイバーセキュリティ",
+              definition: "コンピュータシステムやネットワークを悪意ある攻撃から守る技術です。",
+              example: "ウイルス対策やハッキング防止などが含まれます。"
+            },
+            {
+              id: 26,
+              term: "クラウドストレージ",
+              reading: "クラウドストレージ",
+              definition: "インターネット上でファイルを保存・共有できるサービスです。",
+              example: "Google DriveやDropboxが代表的なサービスです。"
+            },
+            {
+              id: 27,
+              term: "SaaS",
+              reading: "サース",
+              definition: "Software as a Serviceの略。ソフトウェアをインターネット経由で提供するサービスです。",
+              example: "Gmail、Office365、Salesforceなどがあります。"
+            },
+            {
+              id: 28,
+              term: "PaaS",
+              reading: "パース",
+              definition: "Platform as a Serviceの略。アプリケーション開発・実行環境を提供するサービスです。",
+              example: "Heroku、Google App Engineなどが該当します。"
+            },
+            {
+              id: 29,
+              term: "IaaS",
+              reading: "イアース",
+              definition: "Infrastructure as a Serviceの略。IT基盤をインターネット経由で提供するサービスです。",
+              example: "Amazon EC2、Microsoft Azureが代表例です。"
+            },
+            {
+              id: 30,
+              term: "仮想マシン",
+              reading: "カソウマシン",
+              definition: "物理的なコンピュータ上に仮想的なコンピュータを作る技術です。",
+              example: "一台のサーバーで複数のOSを同時に動作させることができます。"
+            },
+            {
+              id: 31,
+              term: "ロードバランサー",
+              reading: "ロードバランサー",
+              definition: "複数のサーバーに処理を分散して負荷を軽減する装置です。",
+              example: "大量のアクセスがある時にサーバーダウンを防ぎます。"
+            },
+            {
+              id: 32,
+              term: "CDN",
+              reading: "シーディーエヌ",
+              definition: "Content Delivery Networkの略。コンテンツを世界中に分散配置する技術です。",
+              example: "YouTubeの動画が世界中で快適に視聴できるのはCDNのおかげです。"
+            },
+            {
+              id: 33,
+              term: "NoSQL",
+              reading: "ノーエスキューエル",
+              definition: "従来のリレーショナルデータベース以外のデータベースの総称です。",
+              example: "MongoDBやRedisが代表的なNoSQLデータベースです。"
+            },
+            {
+              id: 34,
+              term: "GraphQL",
+              reading: "グラフキューエル",
+              definition: "APIのためのクエリ言語とランタイムです。",
+              example: "必要なデータだけを効率的に取得できるため、モバイルアプリで重宝されます。"
+            },
+            {
+              id: 35,
+              term: "WebSocket",
+              reading: "ウェブソケット",
+              definition: "WebブラウザとWebサーバー間でリアルタイム通信を行う技術です。",
+              example: "チャットアプリやオンラインゲームで使われています。"
+            },
+            {
+              id: 36,
+              term: "PWA",
+              reading: "ピーダブリューエー",
+              definition: "Progressive Web Appの略。Webサイトをアプリのように使える技術です。",
+              example: "オフライン動作やプッシュ通知が可能になります。"
+            },
+            {
+              id: 37,
+              term: "CI/CD",
+              reading: "シーアイシーディー",
+              definition: "継続的インテグレーション・継続的デプロイメントの略。開発を自動化する手法です。",
+              example: "コードの変更を自動的にテスト・デプロイできます。"
+            },
+            {
+              id: 38,
+              term: "Kubernetes",
+              reading: "クーベルネティス",
+              definition: "コンテナアプリケーションの運用を自動化するプラットフォームです。",
+              example: "Dockerコンテナの管理・スケーリングが自動化できます。"
+            },
+            {
+              id: 39,
+              term: "サーバーレス",
+              reading: "サーバーレス",
+              definition: "サーバー管理が不要なクラウドコンピューティングの実行モデルです。",
+              example: "AWS Lambdaが代表的なサーバーレス環境です。"
+            },
+            {
+              id: 40,
+              term: "エッジコンピューティング",
+              reading: "エッジコンピューティング",
+              definition: "データ処理をユーザーに近い場所で行う技術です。",
+              example: "自動運転車では車両内でリアルタイム処理が必要です。"
+            },
+            {
+              id: 41,
+              term: "量子コンピューティング",
+              reading: "リョウシコンピューティング",
+              definition: "量子力学の原理を利用した次世代コンピュータ技術です。",
+              example: "現在のコンピュータでは解けない問題を高速で処理できる可能性があります。"
+            },
+            {
+              id: 42,
+              term: "5G",
+              reading: "ファイブジー",
+              definition: "第5世代移動通信システム。超高速・低遅延の無線通信技術です。",
+              example: "IoTデバイスの同時接続数が大幅に向上します。"
+            },
+            {
+              id: 43,
+              term: "AR",
+              reading: "エーアール",
+              definition: "Augmented Realityの略。現実世界にデジタル情報を重ねて表示する技術です。",
+              example: "ポケモンGOやInstagramのフィルター機能で使われています。"
+            },
+            {
+              id: 44,
+              term: "VR",
+              reading: "ブイアール",
+              definition: "Virtual Realityの略。仮想空間を体験できる技術です。",
+              example: "Oculus RiftやPlayStation VRなどのヘッドセットで体験できます。"
+            },
+            {
+              id: 45,
+              term: "デジタルツイン",
+              reading: "デジタルツイン",
+              definition: "物理世界の対象をデジタル空間で再現・シミュレーションする技術です。",
+              example: "工場の設備をデジタルで再現して故障予測を行えます。"
+            },
+            {
+              id: 46,
+              term: "RPA",
+              reading: "アールピーエー",
+              definition: "Robotic Process Automationの略。定型業務を自動化する技術です。",
+              example: "データ入力や請求書処理などの事務作業を自動化できます。"
+            },
+            {
+              id: 47,
+              term: "チャットボット",
+              reading: "チャットボット",
+              definition: "テキストや音声で人間と対話できる自動応答プログラムです。",
+              example: "カスタマーサポートや問い合わせ対応で活用されています。"
+            },
+            {
+              id: 48,
+              term: "スマートコントラクト",
+              reading: "スマートコントラクト",
+              definition: "ブロックチェーン上で自動実行される契約プログラムです。",
+              example: "条件を満たすと自動的に支払いが実行される仕組みが作れます。"
+            },
+            {
+              id: 49,
+              term: "メタバース",
+              reading: "メタバース",
+              definition: "VR・ARを活用した仮想共有空間の概念です。",
+              example: "Facebook（Meta）が提供するHorizon Worldsなどがあります。"
+            },
+            {
+              id: 50,
+              term: "NFT",
+              reading: "エヌエフティー",
+              definition: "Non-Fungible Tokenの略。デジタルデータの所有権を証明する技術です。",
+              example: "デジタルアートや音楽の権利証明に使われています。"
+            }
+          ];
+
+          const currentTermData = itTerms[currentTerm];
+
+          const clearAutoPlayTimer = () => {
+            if (autoPlayTimeoutRef.current) {
+              clearTimeout(autoPlayTimeoutRef.current);
+              autoPlayTimeoutRef.current = null;
+            }
+          };
+
+          const handleVolumeChange = (newVolume) => {
+            setTempVolume(newVolume);
+            if (volumeTimeoutRef.current) {
+              clearTimeout(volumeTimeoutRef.current);
+            }
+            volumeTimeoutRef.current = setTimeout(() => {
+              setVolume(newVolume);
+              if (!isPlaying) {
+                volumeTimeoutRef.current = null;
+              }
+            }, isPlaying ? 1000 : 0);
+          };
+
+          const handleRateChange = (newRate) => {
+            setTempSpeechRate(newRate);
+            if (rateTimeoutRef.current) {
+              clearTimeout(rateTimeoutRef.current);
+            }
+            rateTimeoutRef.current = setTimeout(() => {
+              setSpeechRate(newRate);
+              if (!isPlaying) {
+                rateTimeoutRef.current = null;
+              }
+            }, isPlaying ? 1000 : 0);
+          };
+
+          const handleSpeechEnd = () => {
+            setIsPlaying(false);
+            if (volumeTimeoutRef.current) {
+              clearTimeout(volumeTimeoutRef.current);
+              setVolume(tempVolume);
+              volumeTimeoutRef.current = null;
+            }
+            if (rateTimeoutRef.current) {
+              clearTimeout(rateTimeoutRef.current);
+              setSpeechRate(tempSpeechRate);
+              rateTimeoutRef.current = null;
+            }
+            
+            if (autoPlay && currentTerm < itTerms.length - 1) {
+              const nextIndex = currentTerm + 1;
+              autoPlayTimeoutRef.current = setTimeout(() => {
+                setCurrentTerm(nextIndex);
+                setTimeout(() => {
+                  playAutoNextTerm(nextIndex);
+                }, 100);
+              }, 2000);
+            }
+          };
+
+          const playAutoNextTerm = (termIndex) => {
+            if ('speechSynthesis' in window) {
+              const termData = itTerms[termIndex];
+              const fullText = `${termData.term}。${termData.definition}例：${termData.example}`;
+              
+              window.speechSynthesis.cancel();
+              clearAutoPlayTimer();
+              
+              const utterance = new SpeechSynthesisUtterance(fullText);
+              utterance.lang = 'ja-JP';
+              utterance.rate = tempSpeechRate;
+              utterance.volume = tempVolume;
+              
+              utterance.onstart = () => setIsLoading(false);
+              utterance.onend = handleSpeechEnd;
+              
+              setIsLoading(true);
+              setIsPlaying(true);
+              window.speechSynthesis.speak(utterance);
+              speechSynthesisRef.current = utterance;
+            }
+          };
+
+          const speakText = (text) => {
+            if ('speechSynthesis' in window) {
+              window.speechSynthesis.cancel();
+              clearAutoPlayTimer();
+              
+              const utterance = new SpeechSynthesisUtterance(text);
+              utterance.lang = 'ja-JP';
+              utterance.rate = tempSpeechRate;
+              utterance.volume = tempVolume;
+              
+              utterance.onstart = () => setIsLoading(false);
+              utterance.onend = handleSpeechEnd;
+              
+              window.speechSynthesis.speak(utterance);
+              speechSynthesisRef.current = utterance;
+            }
+          };
+
+          useEffect(() => {
+            setTempVolume(volume);
+            setTempSpeechRate(speechRate);
+          }, []);
+
+          const playCurrentTerm = () => {
+            if (!isPlaying) {
+              setIsLoading(true);
+              setIsPlaying(true);
+              const fullText = `${currentTermData.term}。${currentTermData.definition}例：${currentTermData.example}`;
+              speakText(fullText);
+            } else {
+              window.speechSynthesis.cancel();
+              clearAutoPlayTimer();
+              setIsPlaying(false);
+            }
+          };
+
+          const nextTerm = () => {
+            window.speechSynthesis.cancel();
+            clearAutoPlayTimer();
+            setIsPlaying(false);
+            setCurrentTerm((prev) => (prev + 1) % itTerms.length);
+          };
+
+          const repeatTerm = () => {
+            window.speechSynthesis.cancel();
+            clearAutoPlayTimer();
+            setIsPlaying(false);
+            setTimeout(() => playCurrentTerm(), 100);
+          };
+
+          useEffect(() => {
+            setProgress(((currentTerm + 1) / itTerms.length) * 100);
+          }, [currentTerm]);
+
+          useEffect(() => {
+            return () => {
+              window.speechSynthesis.cancel();
+              clearAutoPlayTimer();
+              if (volumeTimeoutRef.current) clearTimeout(volumeTimeoutRef.current);
+              if (rateTimeoutRef.current) clearTimeout(rateTimeoutRef.current);
+            };
+          }, []);
+
+          return React.createElement('div', {
+            className: "min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white font-sans"
+          }, [
+            // ヘッダー
+            React.createElement('div', {
+              key: 'header',
+              className: "bg-black/20 backdrop-blur-sm border-b border-white/10 p-4"
+            }, React.createElement('div', {
+              className: "flex items-center justify-between max-w-md mx-auto"
+            }, [
+              React.createElement('div', {
+                key: 'title-section',
+                className: "flex items-center gap-3"
+              }, [
+                React.createElement(BookOpen, {
+                  key: 'icon',
+                  className: "w-6 h-6 text-blue-400"
+                }),
+                React.createElement('h1', {
+                  key: 'title',
+                  className: "text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent"
+                }, '運転学習IT用語')
+              ]),
+              React.createElement('div', {
+                key: 'status-section',
+                className: "flex items-center gap-2"
+              }, [
+                React.createElement('div', {
+                  key: 'status-indicator',
+                  className: `w-3 h-3 rounded-full ${isDrivingMode ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`
+                }),
+                React.createElement('span', {
+                  key: 'status-text',
+                  className: "text-xs font-medium"
+                }, isDrivingMode ? '運転中' : '停車中')
+              ])
+            ])),
+
+            // メインコンテンツ
+            React.createElement('div', {
+              key: 'main-content',
+              className: "max-w-md mx-auto p-6"
+            }, [
+              // 進捗バー
+              React.createElement('div', {
+                key: 'progress-section',
+                className: "mb-8"
+              }, [
+                React.createElement('div', {
+                  key: 'progress-info',
+                  className: "flex justify-between text-sm text-blue-300 mb-2"
+                }, [
+                  React.createElement('span', {key: 'progress-current'}, `進捗: ${currentTerm + 1}/${itTerms.length}`),
+                  React.createElement('span', {key: 'progress-percentage'}, `${Math.round(progress)}%`)
+                ]),
+                React.createElement('div', {
+                  key: 'progress-bar-container',
+                  className: "w-full bg-white/10 rounded-full h-2 backdrop-blur-sm"
+                }, React.createElement('div', {
+                  className: "bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500 ease-out",
+                  style: { width: `${progress}%` }
+                }))
+              ]),
+
+              // 用語カード
+              React.createElement('div', {
+                key: 'term-card',
+                className: "bg-white/5 backdrop-blur-md rounded-3xl p-8 mb-8 border border-white/10 shadow-2xl"
+              }, React.createElement('div', {
+                className: "text-center"
+              }, [
+                React.createElement('h2', {
+                  key: 'term-title',
+                  className: "text-4xl font-black mb-2 bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent"
+                }, currentTermData.term),
+                React.createElement('p', {
+                  key: 'term-reading',
+                  className: "text-blue-300 text-lg mb-4 font-medium"
+                }, currentTermData.reading),
+                
+                !isDrivingMode && React.createElement('div', {
+                  key: 'term-details',
+                  className: "text-left space-y-4 text-gray-200"
+                }, [
+                  React.createElement('div', {key: 'definition-section'}, [
+                    React.createElement('h4', {
+                      key: 'definition-title',
+                      className: "font-semibold text-cyan-300 mb-1"
+                    }, '定義：'),
+                    React.createElement('p', {
+                      key: 'definition-text',
+                      className: "text-sm leading-relaxed"
+                    }, currentTermData.definition)
+                  ]),
+                  React.createElement('div', {key: 'example-section'}, [
+                    React.createElement('h4', {
+                      key: 'example-title',
+                      className: "font-semibold text-cyan-300 mb-1"
+                    }, '例：'),
+                    React.createElement('p', {
+                      key: 'example-text',
+                      className: "text-sm leading-relaxed"
+                    }, currentTermData.example)
+                  ])
+                ])
+              ])),
+
+              // 操作ボタン
+              React.createElement('div', {
+                key: 'controls',
+                className: "space-y-4"
+              }, [
+                // メイン再生ボタン
+                React.createElement('button', {
+                  key: 'play-button',
+                  onClick: playCurrentTerm,
+                  disabled: isLoading,
+                  className: `w-full h-20 rounded-2xl font-bold text-xl flex items-center justify-center gap-4 transition-all duration-200 transform active:scale-95 ${
+                    isPlaying 
+                      ? 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 shadow-red-500/25' 
+                      : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-blue-500/25'
+                  } shadow-lg backdrop-blur-sm`
+                }, isLoading ? [
+                  React.createElement('div', {
+                    key: 'loading-spinner',
+                    className: "w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"
+                  })
+                ] : isPlaying ? [
+                  React.createElement(Pause, {key: 'pause-icon', className: "w-6 h-6"}),
+                  '停止'
+                ] : [
+                  React.createElement(Play, {key: 'play-icon', className: "w-6 h-6"}),
+                  '再生'
+                ]),
+
+                // サブ操作ボタン
+                React.createElement('div', {
+                  key: 'sub-controls',
+                  className: "grid grid-cols-2 gap-4"
+                }, [
+                  React.createElement('button', {
+                    key: 'repeat-button',
+                    onClick: repeatTerm,
+                    className: "h-16 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center gap-2 font-semibold transition-all duration-200 transform active:scale-95 backdrop-blur-sm border border-white/20"
+                  }, [
+                    React.createElement(RotateCcw, {key: 'repeat-icon', className: "w-5 h-5"}),
+                    'リピート'
+                  ]),
+                  React.createElement('button', {
+                    key: 'next-button',
+                    onClick: nextTerm,
+                    className: "h-16 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center gap-2 font-semibold transition-all duration-200 transform active:scale-95 backdrop-blur-sm border border-white/20"
+                  }, [
+                    React.createElement(SkipForward, {key: 'next-icon', className: "w-5 h-5"}),
+                    '次へ'
+                  ])
+                ])
+              ]),
+
+              // モード切替
+              React.createElement('div', {
+                key: 'mode-toggle',
+                className: "mt-8 p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10"
+              }, [
+                React.createElement('div', {
+                  key: 'mode-control',
+                  className: "flex items-center justify-between"
+                }, [
+                  React.createElement('span', {
+                    key: 'mode-label',
+                    className: "font-medium"
+                  }, '運転モード'),
+                  React.createElement('button', {
+                    key: 'mode-switch',
+                    onClick: () => setIsDrivingMode(!isDrivingMode),
+                    className: `w-12 h-6 rounded-full transition-all duration-200 ${
+                      isDrivingMode ? 'bg-red-500' : 'bg-green-500'
+                    }`
+                  }, React.createElement('div', {
+                    className: `w-5 h-5 bg-white rounded-full transition-all duration-200 transform ${
+                      isDrivingMode ? 'translate-x-0.5' : 'translate-x-6'
+                    }`
+                  }))
+                ]),
+                React.createElement('p', {
+                  key: 'mode-description',
+                  className: "text-xs text-gray-400 mt-2"
+                }, isDrivingMode 
+                  ? '音声のみ。安全運転を心がけてください。' 
+                  : 'テキスト表示も利用できます。'
+                )
+              ]),
+
+              // コントロールパネル
+              React.createElement('div', {
+                key: 'control-panel',
+                className: "mt-4 p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10"
+              }, [
+                // 音量調整
+                React.createElement('div', {
+                  key: 'volume-control',
+                  className: "flex items-center gap-4 mb-4"
+                }, [
+                  React.createElement(Volume2, {
+                    key: 'volume-icon',
+                    className: "w-5 h-5 text-gray-400"
+                  }),
+                  React.createElement('span', {
+                    key: 'volume-label',
+                    className: "text-sm font-medium w-12"
+                  }, '音量'),
+                  React.createElement('input', {
+                    key: 'volume-slider',
+                    type: "range",
+                    min: "0",
+                    max: "1",
+                    step: "0.1",
+                    value: tempVolume,
+                    onChange: (e) => handleVolumeChange(parseFloat(e.target.value)),
+                    className: "flex-1 h-2 bg-white/20 rounded-full appearance-none outline-none slider"
+                  }),
+                  React.createElement('span', {
+                    key: 'volume-value',
+                    className: "text-sm text-gray-400 w-8"
+                  }, Math.round(tempVolume * 100))
+                ]),
+                
+                // 速度調整
+                React.createElement('div', {
+                  key: 'rate-control',
+                  className: "flex items-center gap-4 mb-4"
+                }, [
+                  React.createElement('div', {
+                    key: 'rate-icon',
+                    className: "w-5 h-5 text-gray-400 text-xs font-bold flex items-center justify-center"
+                  }, '×'),
+                  React.createElement('span', {
+                    key: 'rate-label',
+                    className: "text-sm font-medium w-12"
+                  }, '速度'),
+                  React.createElement('input', {
+                    key: 'rate-slider',
+                    type: "range",
+                    min: "0.5",
+                    max: "2.0",
+                    step: "0.1",
+                    value: tempSpeechRate,
+                    onChange: (e) => handleRateChange(parseFloat(e.target.value)),
+                    className: "flex-1 h-2 bg-white/20 rounded-full appearance-none outline-none slider"
+                  }),
+                  React.createElement('span', {
+                    key: 'rate-value',
+                    className: "text-sm text-gray-400 w-8"
+                  }, tempSpeechRate.toFixed(1))
+                ]),
+
+                // 設定変更通知
+                (isPlaying && (tempVolume !== volume || tempSpeechRate !== speechRate)) && React.createElement('div', {
+                  key: 'settings-notification',
+                  className: "mb-4 p-2 bg-blue-500/20 rounded-lg border border-blue-500/30"
+                }, React.createElement('p', {
+                  className: "text-xs text-blue-200"
+                }, '⚡ 設定変更は音声終了後または1秒後に適用されます')),
+
+                // 自動再生
+                React.createElement('div', {
+                  key: 'autoplay-control',
+                  className: "flex items-center justify-between"
+                }, [
+                  React.createElement('div', {
+                    key: 'autoplay-label-section',
+                    className: "flex items-center gap-2"
+                  }, [
+                    React.createElement('div', {
+                      key: 'autoplay-icon',
+                      className: "w-5 h-5 text-gray-400 text-xs font-bold flex items-center justify-center"
+                    }, '▶'),
+                    React.createElement('span', {
+                      key: 'autoplay-label',
+                      className: "text-sm font-medium"
+                    }, '自動再生')
+                  ]),
+                  React.createElement('button', {
+                    key: 'autoplay-switch',
+                    onClick: () => setAutoPlay(!autoPlay),
+                    className: `w-12 h-6 rounded-full transition-all duration-200 ${
+                      autoPlay ? 'bg-blue-500' : 'bg-gray-500'
+                    }`
+                  }, React.createElement('div', {
+                    className: `w-5 h-5 bg-white rounded-full transition-all duration-200 transform ${
+                      autoPlay ? 'translate-x-6' : 'translate-x-0.5'
+                    }`
+                  }))
+                ]),
+                React.createElement('p', {
+                  key: 'autoplay-description',
+                  className: "text-xs text-gray-400 mt-2"
+                }, autoPlay 
+                  ? '音声終了後、2秒で次の用語を自動再生します。' 
+                  : '手動で次の用語に進みます。'
+                )
+              ])
+            ])
+          ]);
+        };
+
+        ReactDOM.render(React.createElement(DrivingITLearningApp), document.getElementById('root'));
+    </script>
+</body>
+</html>
+
+        const DrivingITLearningApp = () => {
+          const [isPlaying, setIsPlaying] = useState(false);
+          const [currentTerm, setCurrentTerm] = useState(0);
+          const [isDrivingMode, setIsDrivingMode] = useState(true);
+          const [progress, setProgress] = useState(0);
+          const [isLoading, setIsLoading] = useState(false);
+          const [volume, setVolume] = useState(0.8);
+          const [speechRate, setSpeechRate] = useState(0.9);
+          const [autoPlay, setAutoPlay] = useState(false);
+          // スライダー変更中の一時的な値を保持
+          const [tempVolume, setTempVolume] = useState(0.8);
+          const [tempSpeechRate, setTempSpeechRate] = useState(0.9);
+          
+          const audioRef = useRef(null);
+          const speechSynthesisRef = useRef(null);
+          const autoPlayTimeoutRef = useRef(null);
+          const volumeTimeoutRef = useRef(null);
+          const rateTimeoutRef = useRef(null);
+
+          // IT用語データベース（50個）
+          const itTerms = [
+            {
+              id: 1,
+              term: "API",
+              reading: "エーピーアイ",
+              definition: "Application Programming Interfaceの略。異なるソフトウェア同士が情報をやり取りするための仕組みです。",
+              example: "WebサイトがTwitterのAPIを使って、ツイートを表示する機能を実装できます。"
+            },
+            {
+              id: 2,
+              term: "クラウドコンピューティング",
+              reading: "クラウドコンピューティング",
+              definition: "インターネット経由でコンピュータリソースやサービスを利用する技術です。",
+              example: "GoogleドライブやAmazon Web Servicesが代表的なクラウドサービスです。"
+            },
+            {
+              id: 3,
+              term: "機械学習",
+              reading: "キカイガクシュウ",
+              definition: "コンピュータがデータから自動的にパターンを学習し、予測や分類を行う技術です。",
+              example: "メールのスパム判定や商品推薦システムに使われています。"
+            },
+            {
+              id: 4,
+              term: "DevOps",
+              reading: "デブオプス",
+              definition: "開発チームと運用チームが協力して、ソフトウェアの開発から運用までを効率化する考え方です。",
+              example: "継続的インテグレーションや自動デプロイメントが含まれます。"
+            },
+            {
+              id: 5,
+              term: "IoT",
+              reading: "アイオーティー",
+              definition: "Internet of Thingsの略。様々なモノがインターネットに接続され、データを交換する技術です。",
+              example: "スマート家電や自動車の遠隔監視システムなどがあります。"
+            },
+            {
+              id: 6,
+              term: "ブロックチェーン",
+              reading: "ブロックチェーン",
+              definition: "取引記録を改ざん困難な形で分散管理する技術です。",
+              example: "仮想通貨ビットコインの基盤技術として使われています。"
+            },
+            {
+              id: 7,
+              term: "コンテナ技術",
+              reading: "コンテナギジュツ",
+              definition: "アプリケーションとその実行環境を軽量にパッケージ化する技術です。",
+              example: "Dockerが代表的なコンテナプラットフォームです。"
+            },
+            {
+              id: 8,
+              term: "マイクロサービス",
+              reading: "マイクロサービス",
+              definition: "大きなアプリケーションを小さな独立したサービスに分割するアーキテクチャです。",
+              example: "NetflixやAmazonが採用している設計手法です。"
+            },
+            {
+              id: 9,
+              term: "データベース",
+              reading: "データベース",
+              definition: "データを整理して効率的に保存・検索できるシステムです。",
+              example: "顧客情報や商品情報を管理するのに使われます。"
+            },
+            {
+              id: 10,
+              term: "ファイアウォール",
+              reading: "ファイアウォール",
+              definition: "ネットワークへの不正アクセスを防ぐセキュリティシステムです。",
+              example: "企業内ネットワークを外部の脅威から守ります。"
+            },
+            {
+              id: 11,
+              term: "VPN",
+              reading: "ブイピーエヌ",
+              definition: "Virtual Private Networkの略。安全な仮想的な専用回線を作る技術です。",
+              example: "リモートワークで社内ネットワークに安全にアクセスできます。"
+            },
+            {
+              id: 12,
+              term: "SSL",
+              reading: "エスエスエル",
+              definition: "インターネット通信を暗号化してセキュリティを高める技術です。",
+              example: "オンラインショッピングでクレジットカード情報を安全に送信します。"
+            },
+            {
+              id: 13,
+              term: "レスポンシブデザイン",
+              reading: "レスポンシブデザイン",
+              definition: "様々な画面サイズに自動的に対応するWebデザイン手法です。",
+              example: "同じWebサイトがスマホでもパソコンでも見やすく表示されます。"
+            },
+            {
+              id: 14,
+              term: "フロントエンド",
+              reading: "フロントエンド",
+              definition: "ユーザーが直接操作する部分のシステム開発を指します。",
+              example: "Webサイトのデザインやユーザーインターフェースの実装です。"
+            },
+            {
+              id: 15,
+              term: "バックエンド",
+              reading: "バックエンド",
+              definition: "ユーザーから見えない部分のシステム処理を指します。",
+              example: "データベース処理やサーバー側のロジック実装です。"
+            },
+            {
+              id: 16,
+              term: "フレームワーク",
+              reading: "フレームワーク",
+              definition: "アプリケーション開発を効率化するための基盤となるソフトウェアです。",
+              example: "ReactやVue.jsがWebアプリ開発で使われる代表的なフレームワークです。"
+            },
+            {
+              id: 17,
+              term: "アジャイル開発",
+              reading: "アジャイルカイハツ",
+              definition: "短期間で機能を実装し、段階的にシステムを完成させる開発手法です。",
+              example: "スクラムやカンバンといった具体的な方法論があります。"
+            },
+            {
+              id: 18,
+              term: "バージョン管理",
+              reading: "バージョンカンリ",
+              definition: "ソースコードの変更履歴を管理し、過去の状態に戻せるシステムです。",
+              example: "Gitが最も広く使われているバージョン管理システムです。"
+            },
+            {
+              id: 19,
+              term: "UI",
+              reading: "ユーアイ",
+              definition: "User Interfaceの略。ユーザーがシステムを操作する画面や仕組みです。",
+              example: "ボタンやメニューなど、ユーザーが触れる全ての要素を含みます。"
+            },
+            {
+              id: 20,
+              term: "UX",
+              reading: "ユーエックス",
+              definition: "User Experienceの略。ユーザーがサービスを使った時の総合的な体験です。",
+              example: "使いやすさや満足度など、感情的な側面も含まれます。"
+            },
+            {
+              id: 21,
+              term: "ビッグデータ",
+              reading: "ビッグデータ",
+              definition: "従来の処理方法では扱いきれない大量のデータのことです。",
+              example: "SNSの投稿データや位置情報データなどが該当します。"
+            },
+            {
+              id: 22,
+              term: "データマイニング",
+              reading: "データマイニング",
+              definition: "大量のデータから有用なパターンや知識を発見する技術です。",
+              example: "購買履歴から顧客の嗜好を分析することができます。"
+            },
+            {
+              id: 23,
+              term: "人工知能",
+              reading: "ジンコウチノウ",
+              definition: "人間の知的活動をコンピュータで模倣する技術の総称です。",
+              example: "画像認識や自然言語処理、音声認識などの分野があります。"
+            },
+            {
+              id: 24,
+              term: "深層学習",
+              reading: "シンソウガクシュウ",
+              definition: "多層のニューラルネットワークを使った機械学習手法です。",
+              example: "画像認識や音声認識で高い精度を実現しています。"
+            },
+            {
+              id: 25,
+              term: "サイバーセキュリティ",
+              reading: "サイバーセキュリティ",
+              definition: "コンピュータシステムやネットワークを悪意ある攻撃から守る技術です。",
+              example: "ウイルス対策やハッキング防止などが含まれます。"
+            },
+            {
+              id: 26,
+              term: "クラウドストレージ",
+              reading: "クラウドストレージ",
+              definition: "インターネット上でファイルを保存・共有できるサービスです。",
+              example: "Google DriveやDropboxが代表的なサービスです。"
+            },
+            {
+              id: 27,
+              term: "SaaS",
+              reading: "サース",
+              definition: "Software as a Serviceの略。ソフトウェアをインターネット経由で提供するサービスです。",
+              example: "Gmail、Office365、Salesforceなどがあります。"
+            },
+            {
+              id: 28,
+              term: "PaaS",
+              reading: "パース",
+              definition: "Platform as a Serviceの略。アプリケーション開発・実行環境を提供するサービスです。",
+              example: "Heroku、Google App Engineなどが該当します。"
+            },
+            {
+              id: 29,
+              term: "IaaS",
+              reading: "イアース",
+              definition: "Infrastructure as a Serviceの略。IT基盤をインターネット経由で提供するサービスです。",
+              example: "Amazon EC2、Microsoft Azureが代表例です。"
+            },
+            {
+              id: 30,
+              term: "仮想マシン",
+              reading: "カソウマシン",
+              definition: "物理的なコンピュータ上に仮想的なコンピュータを作る技術です。",
+              example: "一台のサーバーで複数のOSを同時に動作させることができます。"
+            },
+            {
+              id: 31,
+              term: "ロードバランサー",
+              reading: "ロードバランサー",
+              definition: "複数のサーバーに処理を分散して負荷を軽減する装置です。",
+              example: "大量のアクセスがある時にサーバーダウンを防ぎます。"
+            },
+            {
+              id: 32,
+              term: "CDN",
+              reading: "シーディーエヌ",
+              definition: "Content Delivery Networkの略。コンテンツを世界中に分散配置する技術です。",
+              example: "YouTubeの動画が世界中で快適に視聴できるのはCDNのおかげです。"
+            },
+            {
+              id: 33,
+              term: "NoSQL",
+              reading: "ノーエスキューエル",
+              definition: "従来のリレーショナルデータベース以外のデータベースの総称です。",
+              example: "MongoDBやRedisが代表的なNoSQLデータベースです。"
+            },
+            {
+              id: 34,
+              term: "GraphQL",
+              reading: "グラフキューエル",
+              definition: "APIのためのクエリ言語とランタイムです。",
+              example: "必要なデータだけを効率的に取得できるため、モバイルアプリで重宝されます。"
+            },
+            {
+              id: 35,
+              term: "WebSocket",
+              reading: "ウェブソケット",
+              definition: "WebブラウザとWebサーバー間でリアルタイム通信を行う技術です。",
+              example: "チャットアプリやオンラインゲームで使われています。"
+            },
+            {
+              id: 36,
+              term: "PWA",
+              reading: "ピーダブリューエー",
+              definition: "Progressive Web Appの略。Webサイトをアプリのように使える技術です。",
+              example: "オフライン動作やプッシュ通知が可能になります。"
+            },
+            {
+              id: 37,
+              term: "CI/CD",
+              reading: "シーアイシーディー",
+              definition: "継続的インテグレーション・継続的デプロイメントの略。開発を自動化する手法です。",
+              example: "コードの変更を自動的にテスト・デプロイできます。"
+            },
+            {
+              id: 38,
+              term: "Kubernetes",
+              reading: "クーベルネティス",
+              definition: "コンテナアプリケーションの運用を自動化するプラットフォームです。",
+              example: "Dockerコンテナの管理・スケーリングが自動化できます。"
+            },
+            {
+              id: 39,
+              term: "サーバーレス",
+              reading: "サーバーレス",
+              definition: "サーバー管理が不要なクラウドコンピューティングの実行モデルです。",
+              example: "AWS Lambdaが代表的なサーバーレス環境です。"
+            },
+            {
+              id: 40,
+              term: "エッジコンピューティング",
+              reading: "エッジコンピューティング",
+              definition: "データ処理をユーザーに近い場所で行う技術です。",
+              example: "自動運転車では車両内でリアルタイム処理が必要です。"
+            },
+            {
+              id: 41,
+              term: "量子コンピューティング",
+              reading: "リョウシコンピューティング",
+              definition: "量子力学の原理を利用した次世代コンピュータ技術です。",
+              example: "現在のコンピュータでは解けない問題を高速で処理できる可能性があります。"
+            },
+            {
+              id: 42,
+              term: "5G",
+              reading: "ファイブジー",
+              definition: "第5世代移動通信システム。超高速・低遅延の無線通信技術です。",
+              example: "IoTデバイスの同時接続数が大幅に向上します。"
+            },
+            {
+              id: 43,
+              term: "AR",
+              reading: "エーアール",
+              definition: "Augmented Realityの略。現実世界にデジタル情報を重ねて表示する技術です。",
+              example: "ポケモンGOやInstagramのフィルター機能で使われています。"
+            },
+            {
+              id: 44,
+              term: "VR",
+              reading: "ブイアール",
+              definition: "Virtual Realityの略。仮想空間を体験できる技術です。",
+              example: "Oculus RiftやPlayStation VRなどのヘッドセットで体験できます。"
+            },
+            {
+              id: 45,
+              term: "デジタルツイン",
+              reading: "デジタルツイン",
+              definition: "物理世界の対象をデジタル空間で再現・シミュレーションする技術です。",
+              example: "工場の設備をデジタルで再現して故障予測を行えます。"
+            },
+            {
+              id: 46,
+              term: "RPA",
+              reading: "アールピーエー",
+              definition: "Robotic Process Automationの略。定型業務を自動化する技術です。",
+              example: "データ入力や請求書処理などの事務作業を自動化できます。"
+            },
+            {
+              id: 47,
+              term: "チャットボット",
+              reading: "チャットボット",
+              definition: "テキストや音声で人間と対話できる自動応答プログラムです。",
+              example: "カスタマーサポートや問い合わせ対応で活用されています。"
+            },
+            {
+              id: 48,
+              term: "スマートコントラクト",
+              reading: "スマートコントラクト",
+              definition: "ブロックチェーン上で自動実行される契約プログラムです。",
+              example: "条件を満たすと自動的に支払いが実行される仕組みが作れます。"
+            },
+            {
+              id: 49,
+              term: "メタバース",
+              reading: "メタバース",
+              definition: "VR・ARを活用した仮想共有空間の概念です。",
+              example: "Facebook（Meta）が提供するHorizon Worldsなどがあります。"
+            },
+            {
+              id: 50,
+              term: "NFT",
+              reading: "エヌエフティー",
+              definition: "Non-Fungible Tokenの略。デジタルデータの所有権を証明する技術です。",
+              example: "デジタルアートや音楽の権利証明に使われています。"
+            }
+          ];
+
+          const currentTermData = itTerms[currentTerm];
+
+          // 自動再生のタイマーをクリア
+          const clearAutoPlayTimer = () => {
+            if (autoPlayTimeoutRef.current) {
+              clearTimeout(autoPlayTimeoutRef.current);
+              autoPlayTimeoutRef.current = null;
+            }
+          };
+
+          // 音量変更のdebounce処理
+          const handleVolumeChange = (newVolume) => {
+            setTempVolume(newVolume);
+            
+            if (volumeTimeoutRef.current) {
+              clearTimeout(volumeTimeoutRef.current);
+            }
+            
+            volumeTimeoutRef.current = setTimeout(() => {
+              setVolume(newVolume);
+              if (!isPlaying) {
+                volumeTimeoutRef.current = null;
+              }
+            }, isPlaying ? 1000 : 0);
+          };
+
+          // 再生速度変更のdebounce処理
+          const handleRateChange = (newRate) => {
+            setTempSpeechRate(newRate);
+            
+            if (rateTimeoutRef.current) {
+              clearTimeout(rateTimeoutRef.current);
+            }
+            
+            rateTimeoutRef.current = setTimeout(() => {
+              setSpeechRate(newRate);
+              if (!isPlaying) {
+                rateTimeoutRef.current = null;
+              }
+            }, isPlaying ? 1000 : 0);
+          };
+
+          // 音声終了時の処理
+          const handleSpeechEnd = () => {
+            setIsPlaying(false);
+            if (volumeTimeoutRef.current) {
+              clearTimeout(volumeTimeoutRef.current);
+              setVolume(tempVolume);
+              volumeTimeoutRef.current = null;
+            }
+            if (rateTimeoutRef.current) {
+              clearTimeout(rateTimeoutRef.current);
+              setSpeechRate(tempSpeechRate);
+              rateTimeoutRef.current = null;
+            }
+            
+            if (autoPlay && currentTerm < itTerms.length - 1) {
+              const nextIndex = currentTerm + 1;
+              autoPlayTimeoutRef.current = setTimeout(() => {
+                setCurrentTerm(nextIndex);
+                setTimeout(() => {
+                  playAutoNextTerm(nextIndex);
+                }, 100);
+              }, 2000);
+            }
+          };
+
+          // 自動再生専用の音声合成関数
+          const playAutoNextTerm = (termIndex) => {
+            if ('speechSynthesis' in window) {
+              const termData = itTerms[termIndex];
+              const fullText = `${termData.term}。${termData.definition}例：${termData.example}`;
+              
+              window.speechSynthesis.cancel();
+              clearAutoPlayTimer();
+              
+              const utterance = new SpeechSynthesisUtterance(fullText);
+              utterance.lang = 'ja-JP';
+              utterance.rate = tempSpeechRate;
+              utterance.volume = tempVolume;
+              
+              utterance.onstart = () => setIsLoading(false);
+              utterance.onend = handleSpeechEnd;
+              
+              setIsLoading(true);
+              setIsPlaying(true);
+              window.speechSynthesis.speak(utterance);
+              speechSynthesisRef.current = utterance;
+            }
+          };
+
+          // 音声合成による読み上げ
+          const speakText = (text) => {
+            if ('speechSynthesis' in window) {
+              window.speechSynthesis.cancel();
+              clearAutoPlayTimer();
+              
+              const utterance = new SpeechSynthesisUtterance(text);
+              utterance.lang = 'ja-JP';
+              utterance.rate = tempSpeechRate;
+              utterance.volume = tempVolume;
+              
+              utterance.onstart = () => setIsLoading(false);
+              utterance.onend = handleSpeechEnd;
+              
+              window.speechSynthesis.speak(utterance);
+              speechSynthesisRef.current = utterance;
+            }
+          };
+
+          // 初期値の同期
+          useEffect(() => {
+            setTempVolume(volume);
+            setTempSpeechRate(speechRate);
+          }, []);
+
+          // 現在の用語を読み上げ
+          const playCurrentTerm = () => {
+            if (!isPlaying) {
+              setIsLoading(true);
+              setIsPlaying(true);
+              const fullText = `${currentTermData.term}。${currentTermData.definition}例：${currentTermData.example}`;
+              speakText(fullText);
+            } else {
+              window.speechSynthesis.cancel();
+              clearAutoPlayTimer();
+              setIsPlaying(false);
+            }
+          };
+
+          // 次の用語へ
+          const nextTerm = () => {
+            window.speechSynthesis.cancel();
+            clearAutoPlayTimer();
+            setIsPlaying(false);
+            setCurrentTerm((prev) => (prev + 1) % itTerms.length);
+          };
+
+          // 用語をリピート
+          const repeatTerm = () => {
+            window.speechSynthesis.cancel();
+            clearAutoPlayTimer();
+            setIsPlaying(false);
+            setTimeout(() => playCurrentTerm(), 100);
+          };
+
+          // 進捗更新
+          useEffect(() => {
+            setProgress(((currentTerm + 1) / itTerms.length) * 100);
+          }, [currentTerm]);
+
+          // コンポーネントのクリーンアップ
+          useEffect(() => {
+            return () => {
+              window.speechSynthesis.cancel();
+              clearAutoPlayTimer();
+              if (volumeTimeoutRef.current) clearTimeout(volumeTimeoutRef.current);
+              if (rateTimeoutRef.current) clearTimeout(rateTimeoutRef.current);
+            };
+          }, []);
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white font-sans">
+              {/* ヘッダー */}
+              <div className="bg-black/20 backdrop-blur-sm border-b border-white/10 p-4">
+                <div className="flex items-center justify-between max-w-md mx-auto">
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="w-6 h-6 text-blue-400" />
+                    <h1 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                      運転学習IT用語
+                    </h1>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${isDrivingMode ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+                    <span className="text-xs font-medium">
+                      {isDrivingMode ? '運転中' : '停車中'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-w-md mx-auto p-6">
+                {/* 進捗バー */}
+                <div className="mb-8">
+                  <div className="flex justify-between text-sm text-blue-300 mb-2">
+                    <span>進捗: {currentTerm + 1}/{itTerms.length}</span>
+                    <span>{Math.round(progress)}%</span>
+                  </div>
+                  <div className="w-full bg-white/10 rounded-full h-2 backdrop-blur-sm">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* 用語カード */}
+                <div className="bg-white/5 backdrop-blur-md rounded-3xl p-8 mb-8 border border-white/10 shadow-2xl">
+                  <div className="text-center">
+                    <h2 className="text-4xl font-black mb-2 bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+                      {currentTermData.term}
+                    </h2>
+                    <p className="text-blue-300 text-lg mb-4 font-medium">
+                      {currentTermData.reading}
+                    </p>
+                    
+                    {!isDrivingMode && (
+                      <div className="text-left space-y-4 text-gray-200">
+                        <div>
+                          <h4 className="font-semibold text-cyan-300 mb-1">定義：</h4>
+                          <p className="text-sm leading-relaxed">{currentTermData.definition}</p>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-cyan-300 mb-1">例：</h4>
+                          <p className="text-sm leading-relaxed">{currentTermData.example}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 操作ボタン */}
+                <div className="space-y-4">
+                  {/* メイン再生ボタン */}
+                  <button
+                    onClick={playCurrentTerm}
+                    disabled={isLoading}
+                    className={`w-full h-20 rounded-2xl font-bold text-xl flex items-center justify-center gap-4 transition-all duration-200 transform active:scale-95 ${
+                      isPlaying 
+                        ? 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 shadow-red-500/25' 
+                        : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-blue-500/25'
+                    } shadow-lg backdrop-blur-sm`}
+                  >
+                    {isLoading ? (
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : isPlaying ? (
+                      <><Pause className="w-6 h-6" /> 停止</>
+                    ) : (
+                      <><Play className="w-6 h-6" /> 再生</>
+                    )}
+                  </button>
+
+                  {/* サブ操作ボタン */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={repeatTerm}
+                      className="h-16 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center gap-2 font-semibold transition-all duration-200 transform active:scale-95 backdrop-blur-sm border border-white/20"
+                    >
+                      <RotateCcw className="w-5 h-5" />
+                      リピート
+                    </button>
+                    
+                    <button
+                      onClick={nextTerm}
+                      className="h-16 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center gap-2 font-semibold transition-all duration-200 transform active:scale-95 backdrop-blur-sm border border-white/20"
+                    >
+                      <SkipForward className="w-5 h-5" />
+                      次へ
+                    </button>
+                  </div>
+                </div>
+
+                {/* モード切替 */}
+                <div className="mt-8 p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">運転モード</span>
+                    <button
+                      onClick={() => setIsDrivingMode(!isDrivingMode)}
+                      className={`w-12 h-6 rounded-full transition-all duration-200 ${
+                        isDrivingMode ? 'bg-red-500' : 'bg-green-500'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 bg-white rounded-full transition-all duration-200 transform ${
+                          isDrivingMode ? 'translate-x-0.5' : 'translate-x-6'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    {isDrivingMode 
+                      ? '音声のみ。安全運転を心がけてください。' 
+                      : 'テキスト表示も利用できます。'
+                    }
+                  </p>
+                </div>
+
+                {/* 音量・速度・自動再生調整 */}
+                <div className="mt-4 p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10">
+                  <div className="flex items-center gap-4 mb-4">
+                    <Volume2 className="w-5 h-5 text-gray-400" />
+                    <span className="text-sm font-medium w-12">音量</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={tempVolume}
+                      onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                      className="flex-1 h-2 bg-white/20 rounded-full appearance-none outline-none slider"
+                    />
+                    <span className="text-sm text-gray-400 w-8">{Math.round(tempVolume * 100)}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-5 h-5 text-gray-400 text-xs font-bold flex items-center justify-center">
+                      ×
+                    </div>
+                    <span className="text-sm font-medium w-12">速度</span>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.0"
+                      step="0.1"
+                      value={tempSpeechRate}
+                      onChange={(e) => handleRateChange(parseFloat(e.target.value))}
+                      className="flex-1 h-2 bg-white/20 rounded-full appearance-none outline-none slider"
+                    />
+                    <span className="text-sm text-gray-400 w-8">{tempSpeechRate.toFixed(1)}</span>
+                  </div>
+
+                  {isPlaying && (tempVolume !== volume || tempSpeechRate !== speechRate) && (
+                    <div className="mb-4 p-2 bg-blue-500/20 rounded-lg border border-blue-500/30">
+                      <p className="text-xs text-blue-200">
+                        ⚡ 設定変更は音声終了後または1秒後に適用されます
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 text-gray-400 text-xs font-bold flex items-center justify-center">
+                        ▶
+                      </div>
+                      <span className="text-sm font-medium">自動再生</span>
+                    </div>
+                    <button
+                      onClick={() => setAutoPlay(!autoPlay)}
+                      className={`w-12 h-6 rounded-full transition-all duration-200 ${
+                        autoPlay ? 'bg-blue-500' : 'bg-gray-500'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 bg-white rounded-full transition-all duration-200 transform ${
+                          autoPlay ? 'translate-x-6' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    {autoPlay 
+                      ? '音声終了後、2秒で次の用語を自動再生します。' 
+                      : '手動で次の用語に進みます。'
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        ReactDOM.render(<DrivingITLearningApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
